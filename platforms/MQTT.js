@@ -16,17 +16,6 @@ var MqttPlatform = function(log, config){
 
   this.mqttServer = new mosca.Server({
     port: 1883,
-    backend: {
-      type: 'redis',
-      redis: require('redis'),
-      db: 12,
-      port: 6379,
-      return_buffers: true, // to handle binary payloads
-      host: "localhost"
-    },
-    persistence: {
-      factory: mosca.persistence.Redis
-    }
   });
 
   this.mqttServer.on('ready', function() {
