@@ -9,6 +9,7 @@ var Service = require('HAP-NodeJS').Service;
 var Characteristic = require('HAP-NodeJS').Characteristic;
 var accessoryLoader = require('HAP-NodeJS').AccessoryLoader;
 var once = require('HAP-NodeJS/lib/util/once').once;
+var _ = require('lodash');
 
 console.log("Starting HomeBridge server...");
 
@@ -64,7 +65,8 @@ function startup() {
     if (asyncCalls == 0)
       publish();
 }
-
+targetPort = 7000;
+targetHash = 0
 function loadAccessories() {
 
     // Instantiate all accessories in the config
@@ -89,10 +91,18 @@ function loadAccessories() {
         var accessory = createAccessory(accessoryInstance, accessoryName);
         
         // add it to the bridge
-        bridge.addBridgedAccessory(accessory);
+        //bridge.addBridgedAccessory(accessory);
+        var iid = accessoryInstance.iid || "CC:25:3D:A3:AE:0"+targetHash++
+        console.log(iid,targetPort);
+        accessory.publish({
+          port: targetPort++,
+          username: iid,
+          pincode: bridgeConfig.pin || "031-45-154",
+        });
     }
 }
 
+var allAccessories = [];
 function loadPlatforms() {
 
     console.log("Loading " + config.platforms.length + " platforms...");
@@ -113,8 +123,51 @@ function loadPlatforms() {
         log("Initializing %s platform...", platformType);
 
         var platformInstance = new platformConstructor(log, platformConfig);
+
+        platformInstance.on("addAccessory", function (accessoryInstance) {
+          var accessory = createAccessory(accessoryInstance, accessoryInstance.name);
+          accessory.mqttId = accessoryInstance.mqttId;
+          var iid = accessoryInstance.iid || "CC:25:3D:A3:AE:0"+targetHash++
+          allAccessories.push(accessory);
+          accessory.publish({
+            port: targetPort++,
+            username: iid,
+            pincode: bridgeConfig.pin || "031-45-154",
+          });
+        });
+
+        platformInstance.on("removeAccessory", function (accessoryInstance) {
+
+          var i = _.findIndex(allAccessories, function(accessory) {
+            return accessory.mqttId == accessoryInstance.mqttId;
+          });
+          if (i > -1) {
+            allAccessories[i].closeServer(function(){
+              console.log("closed server");
+              allAccessories[i] = null;
+              allAccessories.splice(i,1);
+            });
+          }
+        });
+
         loadPlatformAccessories(platformInstance, log);
     }
+}
+
+
+function publishAccessory(accessory) {
+  var accessoryName = accessoryInstance.name; // assume this property was set
+  
+  log("Initializing platform accessory '%s'...", accessoryName);
+  
+  var accessory = createAccessory(accessoryInstance, accessoryName);
+
+  // add it to the bridge
+  if (platformInstance.dontUseBridged) {
+    
+  } else {
+    bridge.addBridgedAccessory(accessory);
+  }
 }
 
 function loadPlatformAccessories(platformInstance, log) {
@@ -125,14 +178,7 @@ function loadPlatformAccessories(platformInstance, log) {
       // loop through accessories adding them to the list and registering them
       for (var i = 0; i < foundAccessories.length; i++) {
           var accessoryInstance = foundAccessories[i];
-          var accessoryName = accessoryInstance.name; // assume this property was set
-          
-          log("Initializing platform accessory '%s'...", accessoryName);
-          
-          var accessory = createAccessory(accessoryInstance, accessoryName);
-
-          // add it to the bridge
-          bridge.addBridgedAccessory(accessory);
+          publishAccessory(accessoryInstance);
       }
       
       // were we the last callback?
