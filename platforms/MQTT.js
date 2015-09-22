@@ -107,20 +107,12 @@ MqttPlatform.prototype.closeServer = function() {
 }
 
 MqttPlatform.prototype.accessories = function(callback) {
-  console.log("SDSDSDSDSDSDSDS");
-
   var that = this;
-  
- 
   if (!this.foundAccessories) {
     this.foundAccessories=[];
   }
-
   callback(this.foundAccessories);
-
 }
-
-
 
 function MqttAccessory(conf, log) {
   // device info
