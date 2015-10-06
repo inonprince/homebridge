@@ -82,15 +82,15 @@ var MqttPlatform = function(log, config){
   });
 
   this.mqttServer.on('published', function (packet, client) {
+    if (packet.payload) packet.payload = packet.payload.toString('utf8');
     console.log("Published :=", packet);
     if (!client) return;
-    var payload = packet.payload.toString('utf8');
     var i = _.findIndex(that.foundAccessories, function(accessory) {
       return accessory.mqttId == client.id;
     });
     if (i>-1) {
-      if (payload == 'doorClosed' || payload == 'doorOpened') {
-        var value = (payload =='doorOpened') ? 0 : 1;
+      if (packet.payload == 'doorClosed' || packet.payload == 'doorOpened') {
+        var value = (packet.payload =='doorOpened') ? 0 : 1;
         that.foundAccessories[i].initialized = false;
         that.foundAccessories[i].currentStateCharacteristic.updateValue(value, null);
         that.foundAccessories[i].targetStateCharacteristic.updateValue(value, null);
